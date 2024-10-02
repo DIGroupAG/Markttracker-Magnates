@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produkt Auswahl mit API-Daten</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #produktBild {
+            width: 200px;
+            height: 200px;
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            display: block; /* Bild immer sichtbar, aber ohne Quelle */
+        }
+        #apiTabelle {
+            margin-top: 20px;
+            border-collapse: collapse;
+            width: 100%;
+        }
+        #apiTabelle th, #apiTabelle td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+        #apiTabelle th {
+            background-color: #f4f4f4;
+        }
+        #loadButton {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #lastUpdate {
+            margin-left: 20px;
+            font-size: 14px;
+            color: gray;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Wähle ein Produkt aus</h1>
+
+    <select id="produktAuswahl" onchange="zeigeBild()">
+        <option value="">-- Bitte wählen --</option>
+        <option value="bricks">Bricks</option>
+        <option value="quadcopter">Quadcopter</option>
+    </select>
+
+    <div>
+        <img id="produktBild" src="" alt="Produktbild" />
+    </div>
+
+    <div>
+        <button id="loadButton" onclick="ladeProduktDaten()">Load Data</button>
+        <span id="lastUpdate"></span> <!-- Anzeige der letzten Aktualisierung -->
+    </div>
+
+    <div>
+        <table id="apiTabelle">
+            <thead>
+                <tr>
+                    <th>Quality</th>
+                    <th>Quantity</th>
+                    <th>Volume ($)</th> <!-- Neue Spalte für das Volumen -->
+                    <th>Min Price ($)</th>
+                    <th>Max Price ($)</th>
+                    <th>Average Price ($)</th> <!-- Neue Spalte für den Durchschnittspreis -->
+                </tr>
+            </thead>
+            <tbody id="apiTableBody">
+                <!-- Leere Tabelle mit Zeilen für Q0 bis Q12 anzeigen -->
+                <script>
+                    for (let q = 0; q <= 12; q++) {
+                        document.write(`
+                            <tr>
+                                <td>Q${q}</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td> <!-- Neue Spalte für den Durchschnittspreis -->
+                            </tr>
+                        `);
+                    }
+                </script>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Produktinformationen
+        const produkte = {
+            "bricks": {
+                "bild": "https://d1fxy698ilbz6u.cloudfront.net/static/images/resources/bricks.png",
+                "apiUrl": "https://www.simcompanies.com/api/v3/market/0/102"
+            },
+            "quadcopter": {
+                "bild": "https://d1fxy698ilbz6u.cloudfront.net/static/images/resources/quadcopter.png",
+                "apiUrl": "https://www.simcompanies.com/api/v3/market/0/98"
+            }
+        };
+
+        let aktuelleAuswahl = null;
+        let datenGeladen = false;  // Variable, um zu speichern, ob die Daten bereits geladen wurden
+
+        // Funktion zur Anzeige des Bildes nach Auswahl
+        function zeigeBild() {
+            const auswahl = document.getElementById("produktAuswahl").value;
+            const bildElement = document.getElementById("produktBild");
+            const loadButton = document.getElementById("loadButton");
+
+            if (auswahl && produkte[auswahl]) {
+                // Bild setzen
+                bildElement.src = produkte[auswahl].bild;
+                bildElement.style.display = "block"; // Bild anzeigen
+                aktuelleAuswahl = auswahl; // Speichern der aktuellen Auswahl
+
+                // Button zurücksetzen auf "Load Data", wenn das Produkt gewechselt wird
+                loadButton.innerText = "Load Data";
+                datenGeladen = false; // Daten müssen neu geladen werden
+            } else {
+                bildElement.src = ""; // Bild leeren, wenn keine Auswahl
+                aktuelleAuswahl = null; // Keine Auswahl
+                loadButton.innerText = "Load Data"; // Button zurücksetzen
+                datenGeladen = false;
+            }
+
+            // Tabelle leeren und die Struktur von Q0 bis Q12 anzeigen
+            const tableBody = document.getElementById("apiTableBody");
+            tableBody.innerHTML = ''; // Tabelle zurücksetzen
+            for (let q = 0; q <= 12; q++) {
+                tableBody.innerHTML += `
+                    <tr>
+                        <td>Q${q}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td> <!-- Durchschnittspreis leeren -->
+                    </tr>
+                `;
+            }
+
+            // Aktualisierungsdatum zurücksetzen
+            document.getElementById("lastUpdate").innerText = "";
+        }
+
+        // Funktion zur API-Daten Verarbeitung
+        function ladeProduktDaten() {
+            if (!aktuelleAuswahl) {
+                alert("Bitte wähle zuerst ein Produkt aus!");
+                return;
+            }
+
+            const tableBody = document.getElementById("apiTableBody");
+            const loadButton = document.getElementById("loadButton");
+            const lastUpdate = document.getElementById("lastUpdate");
+
+            // API-Daten abrufen
+            fetch(produkte[aktuelleAuswahl].apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    // Tabelle zurücksetzen
+                    tableBody.innerHTML = '';
+
+                    // Daten nach Qualität gruppieren
+                    let qualityData = {};
+
+                    data.forEach(item => {
+                        const { quality, quantity, price } = item;
+
+                        if (!qualityData[quality]) {
+                            qualityData[quality] = {
+                                quantity: 0,
+                                minPrice: price,
+                                maxPrice: price,
+                                volume: 0 // Neues Feld für das Volumen
+                            };
+                        }
+
+                        // Menge und Volumen hinzufügen
+                        qualityData[quality].quantity += quantity;
+                        qualityData[quality].volume += quantity * price; // Volumenberechnung
+
+                        // Preise aktualisieren
+                        qualityData[quality].minPrice = Math.min(qualityData[quality].minPrice, price);
+                        qualityData[quality].maxPrice = Math.max(qualityData[quality].maxPrice, price);
+                    });
+
+                    // Zeilen für Q0 bis Q12 generieren
+                    for (let q = 0; q <= 12; q++) {
+                        const data = qualityData[q] || { quantity: '', minPrice: '', maxPrice: '', volume: '' };
+                        const averagePrice = data.quantity > 0 ? (data.volume / data.quantity).toFixed(2) : ''; // Durchschnittspreis berechnen
+
+                        const row = `<tr>
+                            <td>Q${q}</td>
+                            <td>${data.quantity !== '' ? data.quantity.toLocaleString('de-DE') : ''}</td>
+                            <td>${data.volume !== '' ? data.volume.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}</td> <!-- Volumen anzeigen -->
+                            <td>${data.minPrice !== '' ? data.minPrice.toFixed(2) : ''}</td>
+                            <td>${data.maxPrice !== '' ? data.maxPrice.toFixed(2) : ''}</td>
+                            <td>${averagePrice}</td> <!-- Durchschnittspreis anzeigen -->
+                        </tr>`;
+                        tableBody.innerHTML += row;
+                    }
+
+                    // Button zu "Reload" ändern, wenn die Daten erfolgreich geladen wurden
+                    loadButton.innerText = "Reload";
+                    datenGeladen = true;
+
+                    // Datum und Uhrzeit der letzten Aktualisierung anzeigen
+                    const jetzt = new Date();
+                    const letzteAktualisierung = `${jetzt.getFullYear()}-${(jetzt.getMonth() + 1).toString().padStart(2, '0')}-${jetzt.getDate().toString().padStart(2, '0')} ${jetzt.getHours().toString().padStart(2, '0')}:${jetzt.getMinutes().toString().padStart(2, '0')}:${jetzt.getSeconds().toString().padStart(2, '0')}`;
+                    lastUpdate.innerText = `Last updated: ${letzteAktualisierung}`;
+                })
+                .catch(error => {
+                    tableBody.innerHTML = `<tr><td colspan="6">Fehler beim Laden der API-Daten.</td></tr>`;
+                    lastUpdate.innerText = ""; // Kein Update bei Fehlern
+                });
+        }
+    </script>
+
+</body>
+</html>
